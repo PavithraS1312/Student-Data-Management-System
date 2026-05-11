@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EduTrack – Students</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+</head>
+<body class="app-page">
+  <aside class="sidebar">
+    <div class="sidebar-logo">EDU<span>TRACK</span></div>
+    <nav class="sidebar-nav">
+      <a href="dashboard.html" class="nav-item"><span class="nav-icon">⊞</span> Dashboard</a>
+      <a href="students.html" class="nav-item active"><span class="nav-icon">👥</span> Students</a>
+      <a href="upload.html" class="nav-item"><span class="nav-icon">⬆</span> Upload CSV</a>
+    </nav>
+    <div class="sidebar-footer">
+      <span id="sidebarUser" class="sidebar-user"></span>
+      <button class="btn-logout" onclick="logout()">Logout</button>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <header class="page-header">
+      <div>
+        <h1 class="page-title">Students</h1>
+        <p class="page-sub">Manage all student records</p>
+      </div>
+      <button class="btn btn-primary" onclick="openAddModal()">+ Add Student</button>
+    </header>
+
+    <!-- Search Bar -->
+    <div class="search-bar">
+      <input type="text" id="searchInput" placeholder="Search by name or department..." oninput="searchStudents()" />
+      <span class="search-icon">🔍</span>
+    </div>
+
+    <div id="studentsAlert" class="alert hidden"></div>
+
+    <!-- Students Table -->
+    <div class="card">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Student ID</th><th>Name</th><th>Email</th>
+              <th>Department</th><th>Course</th><th>Grade</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="studentsTable">
+            <tr><td colspan="7" class="loading-text">Loading students...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- Add/Edit Modal -->
+  <div id="studentModal" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modalTitle">Add Student</h3>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div id="modalAlert" class="alert hidden"></div>
+      <form id="studentForm" novalidate>
+        <input type="hidden" id="studentMongoId" />
+        <div class="form-row">
+          <div class="form-group">
+            <label>Student ID</label>
+            <input type="text" id="fStudentId" placeholder="e.g. STU001" required />
+            <span class="field-error" id="fStudentIdErr"></span>
+          </div>
+          <div class="form-group">
+            <label>Full Name</label>
+            <input type="text" id="fName" placeholder="e.g. Alice Johnson" required />
+            <span class="field-error" id="fNameErr"></span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="fEmail" placeholder="student@uni.edu" required />
+          <span class="field-error" id="fEmailErr"></span>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Department</label>
+            <input type="text" id="fDept" placeholder="e.g. Computer Science" required />
+            <span class="field-error" id="fDeptErr"></span>
+          </div>
+          <div class="form-group">
+            <label>Course</label>
+            <input type="text" id="fCourse" placeholder="e.g. Data Structures" required />
+            <span class="field-error" id="fCourseErr"></span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Grade</label>
+          <input type="text" id="fGrade" placeholder="e.g. A, B+, 85" required />
+          <span class="field-error" id="fGradeErr"></span>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="saveBtn">
+            <span class="btn-text">Save Student</span>
+            <span class="btn-loader hidden">●●●</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Delete Confirm Modal -->
+  <div id="deleteModal" class="modal-overlay hidden">
+    <div class="modal modal--sm">
+      <div class="modal-header">
+        <h3>Delete Student</h3>
+        <button class="modal-close" onclick="closeDeleteModal()">✕</button>
+      </div>
+      <p style="margin:1rem 0;">Are you sure you want to delete <strong id="deleteStudentName"></strong>? This cannot be undone.</p>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+        <button class="btn btn-danger" onclick="confirmDelete()">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/script.js"></script>
+  <script>
+    requireAuth();
+    document.getElementById('sidebarUser').textContent = localStorage.getItem('userEmail') || '';
+    let allStudents = [];
+    let deleteTargetId = null;
+
+    async function loadStudents() {
+      try {
+        allStudents = await apiFetch('/students');
+        renderTable(allStudents);
+      } catch(err) {
+        document.getElementById('studentsTable').innerHTML = '<tr><td colspan="7" class="empty-msg">Failed to load students.</td></tr>';
+      }
+    }
+
+    function renderTable(students) {
+      const tbody = document.getElementById('studentsTable');
+      if (students.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-msg">No students found.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = students.map(s => `
+        <tr>
+          <td><span class="badge">${s.studentId||'–'}</span></td>
+          <td><strong>${s.name||'–'}</strong></td>
+          <td>${s.email||'–'}</td>
+          <td>${s.department||'–'}</td>
+          <td>${s.course||'–'}</td>
+          <td><span class="grade-badge">${s.grade||'–'}</span></td>
+          <td>
+            <button class="btn-action btn-edit" onclick="openEditModal('${s.id}')">Edit</button>
+            <button class="btn-action btn-del" onclick="openDeleteModal('${s.id}','${s.name}')">Delete</button>
+          </td>
+        </tr>`).join('');
+    }
+
+    function searchStudents() {
+      const q = document.getElementById('searchInput').value.toLowerCase();
+      const filtered = allStudents.filter(s =>
+        (s.name||'').toLowerCase().includes(q) ||
+        (s.department||'').toLowerCase().includes(q)
+      );
+      renderTable(filtered);
+    }
+
+    function openAddModal() {
+      document.getElementById('modalTitle').textContent = 'Add Student';
+      document.getElementById('studentForm').reset();
+      document.getElementById('studentMongoId').value = '';
+      document.getElementById('studentModal').classList.remove('hidden');
+      document.getElementById('modalAlert').classList.add('hidden');
+      clearErrors();
+    }
+
+    function openEditModal(id) {
+      const s = allStudents.find(x => x.id === id);
+      if (!s) return;
+      document.getElementById('modalTitle').textContent = 'Edit Student';
+      document.getElementById('studentMongoId').value = s.id;
+      document.getElementById('fStudentId').value = s.studentId || '';
+      document.getElementById('fName').value = s.name || '';
+      document.getElementById('fEmail').value = s.email || '';
+      document.getElementById('fDept').value = s.department || '';
+      document.getElementById('fCourse').value = s.course || '';
+      document.getElementById('fGrade').value = s.grade || '';
+      document.getElementById('studentModal').classList.remove('hidden');
+      document.getElementById('modalAlert').classList.add('hidden');
+      clearErrors();
+    }
+
+    function closeModal() {
+      document.getElementById('studentModal').classList.add('hidden');
+    }
+
+    function openDeleteModal(id, name) {
+      deleteTargetId = id;
+      document.getElementById('deleteStudentName').textContent = name;
+      document.getElementById('deleteModal').classList.remove('hidden');
+    }
+
+    function closeDeleteModal() {
+      document.getElementById('deleteModal').classList.add('hidden');
+      deleteTargetId = null;
+    }
+
+    async function confirmDelete() {
+      if (!deleteTargetId) return;
+      try {
+        await apiFetch('/students/' + deleteTargetId, 'DELETE');
+        closeDeleteModal();
+        showAlertMsg('studentsAlert', 'Student deleted successfully.', 'success');
+        loadStudents();
+      } catch(err) {
+        showAlertMsg('studentsAlert', 'Failed to delete student.', 'error');
+        closeDeleteModal();
+      }
+    }
+
+    document.getElementById('studentForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      clearErrors();
+      const mongoId = document.getElementById('studentMongoId').value;
+      const studentId = document.getElementById('fStudentId').value.trim();
+      const name = document.getElementById('fName').value.trim();
+      const email = document.getElementById('fEmail').value.trim();
+      const department = document.getElementById('fDept').value.trim();
+      const course = document.getElementById('fCourse').value.trim();
+      const grade = document.getElementById('fGrade').value.trim();
+      let valid = true;
+      if (!studentId) { showFieldError('fStudentIdErr', 'Required'); valid = false; }
+      if (!name) { showFieldError('fNameErr', 'Required'); valid = false; }
+      if (!email || !isValidEmail(email)) { showFieldError('fEmailErr', 'Valid email required'); valid = false; }
+      if (!department) { showFieldError('fDeptErr', 'Required'); valid = false; }
+      if (!course) { showFieldError('fCourseErr', 'Required'); valid = false; }
+      if (!grade) { showFieldError('fGradeErr', 'Required'); valid = false; }
+      if (!valid) return;
+      setLoading('saveBtn', true);
+      const body = { studentId, name, email, department, course, grade };
+      try {
+        if (mongoId) {
+          await apiFetch('/students/' + mongoId, 'PUT', body);
+          showAlertMsg('studentsAlert', 'Student updated successfully.', 'success');
+        } else {
+          await apiFetch('/students', 'POST', body);
+          showAlertMsg('studentsAlert', 'Student added successfully.', 'success');
+        }
+        closeModal();
+        loadStudents();
+      } catch(err) {
+        showAlert('modalAlert', err.message || 'Failed to save student.');
+      }
+      setLoading('saveBtn', false);
+    });
+
+    function showAlertMsg(id, msg, type) {
+      const el = document.getElementById(id);
+      el.textContent = msg;
+      el.className = 'alert alert-' + type;
+      setTimeout(() => el.classList.add('hidden'), 3000);
+    }
+
+    loadStudents();
+  </script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+com\edutrack\EduTrackApplication.class
+com\edutrack\config\CorsConfig$1.class
+com\edutrack\repository\UserRepository.class
+com\edutrack\service\CsvService$CsvResult.class
+com\edutrack\service\StudentService.class
+com\edutrack\controller\StudentController.class
+com\edutrack\controller\CsvController.class
+com\edutrack\config\CorsConfig.class
+com\edutrack\service\AuthService.class
+com\edutrack\controller\AuthController.class
+com\edutrack\model\User.class
+com\edutrack\service\CsvService.class
+com\edutrack\repository\StudentRepository.class
+com\edutrack\model\Student.class

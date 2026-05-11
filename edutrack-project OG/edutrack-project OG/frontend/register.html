@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EduTrack – Register</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+</head>
+<body class="auth-page">
+  <div class="auth-split">
+    <div class="auth-brand">
+      <div class="brand-content">
+        <div class="brand-logo">EDU<span>TRACK</span></div>
+        <h1>Start managing<br/>your students.</h1>
+        <p>Create a free instructor account and get started in minutes.</p>
+        <div class="brand-features">
+          <div class="feat"><span class="feat-icon">🎓</span> Student Profiles</div>
+          <div class="feat"><span class="feat-icon">📂</span> Multi-file Upload</div>
+          <div class="feat"><span class="feat-icon">✅</span> CSV Validation</div>
+        </div>
+      </div>
+    </div>
+    <div class="auth-form-side">
+      <div class="auth-card">
+        <h2>Create account</h2>
+        <p class="auth-sub">Register as an instructor</p>
+
+        <div id="registerError" class="alert alert-error hidden"></div>
+        <div id="registerSuccess" class="alert alert-success hidden"></div>
+
+        <form id="registerForm" novalidate>
+          <div class="form-group">
+            <label for="regName">Full Name</label>
+            <input type="text" id="regName" placeholder="Dr. Jane Smith" required />
+            <span class="field-error" id="regNameErr"></span>
+          </div>
+          <div class="form-group">
+            <label for="regEmail">Email address</label>
+            <input type="email" id="regEmail" placeholder="you@university.edu" required />
+            <span class="field-error" id="regEmailErr"></span>
+          </div>
+          <div class="form-group">
+            <label for="regPassword">Password</label>
+            <input type="password" id="regPassword" placeholder="Min. 6 characters" required />
+            <span class="field-error" id="regPasswordErr"></span>
+          </div>
+          <div class="form-group">
+            <label for="regConfirm">Confirm Password</label>
+            <input type="password" id="regConfirm" placeholder="Repeat password" required />
+            <span class="field-error" id="regConfirmErr"></span>
+          </div>
+          <button type="submit" class="btn btn-primary btn-full" id="registerBtn">
+            <span class="btn-text">Create Account</span>
+            <span class="btn-loader hidden">●●●</span>
+          </button>
+        </form>
+
+        <p class="auth-switch">Already have an account? <a href="login.html">Sign in</a></p>
+      </div>
+    </div>
+  </div>
+  <script src="js/script.js"></script>
+  <script>
+    document.getElementById('registerForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      clearErrors();
+      const name = document.getElementById('regName').value.trim();
+      const email = document.getElementById('regEmail').value.trim();
+      const password = document.getElementById('regPassword').value.trim();
+      const confirm = document.getElementById('regConfirm').value.trim();
+      let valid = true;
+      if (!name) { showFieldError('regNameErr', 'Name is required'); valid = false; }
+      if (!email) { showFieldError('regEmailErr', 'Email is required'); valid = false; }
+      else if (!isValidEmail(email)) { showFieldError('regEmailErr', 'Enter a valid email'); valid = false; }
+      if (!password || password.length < 6) { showFieldError('regPasswordErr', 'Min 6 characters'); valid = false; }
+      if (password !== confirm) { showFieldError('regConfirmErr', 'Passwords do not match'); valid = false; }
+      if (!valid) return;
+      setLoading('registerBtn', true);
+      try {
+        const res = await fetch(API_BASE + '/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, password })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showSuccess('registerSuccess', 'Account created! Redirecting to login...');
+          setTimeout(() => window.location.href = 'login.html', 1500);
+        } else {
+          showAlert('registerError', data.message || 'Registration failed');
+        }
+      } catch(err) {
+        showAlert('registerError', 'Cannot connect to server. Is Spring Boot running?');
+      }
+      setLoading('registerBtn', false);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EduTrack – Upload CSV</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #0d0f14;
+      color: #e8eaf0;
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 220px;
+      background: #13161e;
+      border-right: 1px solid #252a38;
+      display: flex;
+      flex-direction: column;
+      padding: 1.5rem 1rem;
+      position: fixed;
+      height: 100vh;
+    }
+    .logo { font-size: 1.2rem; font-weight: 900; letter-spacing: 0.1em; color: #6b7280; margin-bottom: 2rem; }
+    .logo span { color: #4f7cff; }
+    .nav a {
+      display: block;
+      padding: 0.6rem 0.8rem;
+      border-radius: 7px;
+      color: #6b7280;
+      text-decoration: none;
+      margin-bottom: 0.3rem;
+      font-size: 0.9rem;
+    }
+    .nav a:hover { background: #1a1e28; color: #e8eaf0; }
+    .nav a.active { background: rgba(79,124,255,0.15); color: #4f7cff; }
+    .sidebar-bottom { margin-top: auto; }
+    .user-email { font-size: 0.75rem; color: #6b7280; margin-bottom: 0.5rem; word-break: break-all; }
+    .logout-btn {
+      background: none; border: 1px solid #252a38;
+      color: #6b7280; padding: 0.35rem 0.8rem;
+      border-radius: 6px; cursor: pointer;
+      font-size: 0.8rem; width: 100%;
+    }
+    .logout-btn:hover { color: #ff4d4d; border-color: #ff4d4d; }
+
+    /* ── Main ── */
+    .main {
+      margin-left: 220px;
+      flex: 1;
+      padding: 2rem 2.5rem;
+    }
+    h1 { font-size: 1.8rem; font-weight: 800; margin-bottom: 0.3rem; }
+    .sub { color: #6b7280; font-size: 0.9rem; margin-bottom: 2rem; }
+
+    /* ── Grid ── */
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+
+    /* ── Card ── */
+    .card {
+      background: #13161e;
+      border: 1px solid #252a38;
+      border-radius: 12px;
+      padding: 1.5rem;
+    }
+    .card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .card p  { font-size: 0.88rem; color: #6b7280; margin-bottom: 1rem; }
+
+    /* ── Drop zone ── */
+    .drop-zone {
+      border: 2px dashed #252a38;
+      border-radius: 10px;
+      padding: 2.5rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 1rem;
+    }
+    .drop-zone:hover,
+    .drop-zone.over { border-color: #4f7cff; background: rgba(79,124,255,0.06); }
+    .drop-zone .icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+    .drop-zone .title { font-weight: 600; margin-bottom: 0.3rem; }
+    .drop-zone .hint  { font-size: 0.82rem; color: #6b7280; margin-bottom: 1rem; }
+    .browse-btn {
+      display: inline-block;
+      background: #4f7cff; color: white;
+      padding: 0.55rem 1.4rem;
+      border-radius: 8px; font-size: 0.9rem;
+      pointer-events: none;
+    }
+
+    /* ── File list ── */
+    .file-item {
+      display: flex; align-items: center; gap: 0.6rem;
+      background: #1a1e28; border: 1px solid #252a38;
+      border-radius: 8px; padding: 0.65rem 0.9rem;
+      margin-bottom: 0.5rem; font-size: 0.85rem;
+    }
+    .file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-size { color: #6b7280; font-size: 0.78rem; white-space: nowrap; }
+    .file-status { min-width: 80px; text-align: right; font-weight: 700; font-size: 0.8rem; }
+    .s-pending { color: #f59e0b; }
+    .s-sending { color: #4f7cff; }
+    .s-done    { color: #22c55e; }
+    .s-error   { color: #ff4d4d; }
+    .remove-btn {
+      background: none; border: none; color: #ff4d4d;
+      cursor: pointer; font-size: 1rem; padding: 0 3px;
+      flex-shrink: 0;
+    }
+
+    /* ── Action buttons ── */
+    .actions { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1rem; }
+    .btn {
+      padding: 0.6rem 1.3rem; border-radius: 8px;
+      font-size: 0.88rem; cursor: pointer; border: none;
+    }
+    .btn-primary { background: #4f7cff; color: white; }
+    .btn-primary:hover { background: #3d6aee; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-secondary {
+      background: #1a1e28; color: #e8eaf0;
+      border: 1px solid #252a38;
+    }
+    .btn-secondary:hover { background: #252a38; }
+
+    /* ── Format guide ── */
+    .csv-table {
+      width: 100%; border-collapse: collapse;
+      font-size: 0.78rem; font-family: monospace;
+      margin-bottom: 1rem; background: #0d0f14;
+      border-radius: 8px; overflow: hidden;
+    }
+    .csv-table th {
+      background: #1a1e28; color: #4f7cff;
+      padding: 0.45rem 0.6rem; text-align: left;
+      border-right: 1px solid #252a38;
+    }
+    .csv-table td {
+      padding: 0.4rem 0.6rem; color: #6b7280;
+      border-right: 1px solid #252a38;
+    }
+    .csv-table th:last-child,
+    .csv-table td:last-child { border-right: none; }
+    .rule { font-size: 0.82rem; color: #6b7280; margin-bottom: 0.35rem; }
+
+    /* ── Results ── */
+    .results-card { margin-top: 1.5rem; }
+    .result-item { padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 0.5rem; font-size: 0.88rem; }
+    .result-ok  { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.35); color: #4ade80; }
+    .result-err { background: rgba(255,77,77,0.1);  border: 1px solid rgba(255,77,77,0.35);  color: #ff8080; }
+    .result-err ul { margin: 0.4rem 0 0 1.2rem; }
+    .result-err li { margin-bottom: 0.2rem; }
+
+    /* ── Util ── */
+    .hidden { display: none !important; }
+    .full { width: 100%; margin-top: 1rem; }
+    .section-label {
+      font-size: 0.75rem; text-transform: uppercase;
+      letter-spacing: 0.07em; color: #6b7280; margin-bottom: 0.6rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo">EDU<span>TRACK</span></div>
+    <nav class="nav">
+      <a href="dashboard.html">⊞ &nbsp;Dashboard</a>
+      <a href="students.html">👥 &nbsp;Students</a>
+      <a href="upload.html" class="active">⬆ &nbsp;Upload CSV</a>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="user-email" id="userEmail"></div>
+      <button class="logout-btn" onclick="doLogout()">Logout</button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <h1>Upload CSV</h1>
+    <p class="sub">Bulk import students from one or more CSV files</p>
+
+    <div class="grid">
+
+      <!-- LEFT: Upload -->
+      <div class="card">
+        <h3>Select CSV Files</h3>
+        <p>Click the box or drag files onto it to add CSV files.</p>
+
+        <!--
+          THE ONLY RELIABLE WAY:
+          input is off-screen (NOT display:none).
+          label[for] opens it natively — zero JS needed for the click.
+        -->
+        <input
+          type="file"
+          id="csvInput"
+          accept=".csv"
+          multiple
+          style="position:fixed; top:-200px; left:-200px; width:1px; height:1px; opacity:0;"
+        />
+        <label for="csvInput" id="dropZone" class="drop-zone">
+          <div class="icon">📂</div>
+          <div class="title">Click here or drag &amp; drop</div>
+          <div class="hint">Only .csv files are accepted</div>
+          <span class="browse-btn">Browse Files</span>
+        </label>
+
+        <!-- File queue -->
+        <div id="queueSection" class="hidden">
+          <div class="section-label">Files ready to upload:</div>
+          <div id="fileList"></div>
+          <div class="actions">
+            <button class="btn btn-secondary" onclick="clearAll()">🗑 Clear All</button>
+            <button class="btn btn-primary" id="uploadBtn" onclick="startUpload()">⬆ Upload All</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Guide -->
+      <div class="card">
+        <h3>CSV Format Guide</h3>
+        <p>Your file must have exactly these 6 columns:</p>
+        <table class="csv-table">
+          <tr>
+            <th>studentId</th><th>name</th><th>email</th>
+            <th>department</th><th>course</th><th>grade</th>
+          </tr>
+          <tr>
+            <td>STU001</td><td>Alice</td><td>alice@uni.edu</td>
+            <td>CS</td><td>AI</td><td>A</td>
+          </tr>
+        </table>
+        <div class="rule">✅ Row 1 must be the header exactly as above</div>
+        <div class="rule">✅ All 6 columns required in every data row</div>
+        <div class="rule">✅ Email must be a valid email address</div>
+        <div class="rule">❌ File must have .csv extension</div>
+        <div class="rule">❌ No completely blank rows</div>
+        <button class="btn btn-secondary full" onclick="downloadSample()">⬇ Download Sample CSV</button>
+      </div>
+
+    </div>
+
+    <!-- Results -->
+    <div class="card results-card hidden" id="resultsCard">
+      <h3>Upload Results</h3>
+      <div id="resultsList" style="margin-top:0.75rem;"></div>
+    </div>
+
+  </main>
+
+  <script>
+    // ── Config — change port here if needed ──────────────────────────
+    const API = 'http://localhost:8080/api';
+
+    // ── On load ──────────────────────────────────────────────────────
+    window.addEventListener('load', function () {
+      // Show user email in sidebar
+      document.getElementById('userEmail').textContent =
+        localStorage.getItem('userEmail') || '';
+
+      // If no token, go to login
+      const token = localStorage.getItem('token');
+      if (!token) {
+        window.location.href = 'login.html';
+        return;
+      }
+    });
+
+    function doLogout() {
+      localStorage.removeItem('token');
+      localStorage.removeItem('userEmail');
+      window.location.href = 'login.html';
+    }
+
+    // ── File state ───────────────────────────────────────────────────
+    let files = [];
+
+    // ── File input change ────────────────────────────────────────────
+    document.getElementById('csvInput').addEventListener('change', function () {
+      addFiles(Array.from(this.files || []));
+      this.value = ''; // reset so same file can be picked again
+    });
+
+    function addFiles(picked) {
+      if (!picked.length) return;
+      const csvOnly = picked.filter(f => f.name.toLowerCase().endsWith('.csv'));
+      const bad     = picked.length - csvOnly.length;
+      if (bad > 0) alert(bad + ' file(s) ignored — only .csv files allowed.');
+      if (!csvOnly.length) return;
+      files = [...files, ...csvOnly];
+      renderList();
+    }
+
+    // ── Drag and drop ────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+
+    dz.addEventListener('dragover', function (e) {
+      e.preventDefault();
+      dz.classList.add('over');
+    });
+    dz.addEventListener('dragleave', function () {
+      dz.classList.remove('over');
+    });
+    dz.addEventListener('drop', function (e) {
+      e.preventDefault();
+      dz.classList.remove('over');
+      addFiles(Array.from(e.dataTransfer.files || []));
+    });
+
+    // ── Render file list ─────────────────────────────────────────────
+    function renderList() {
+      const section = document.getElementById('queueSection');
+      const list    = document.getElementById('fileList');
+
+      if (!files.length) {
+        section.classList.add('hidden');
+        return;
+      }
+      section.classList.remove('hidden');
+
+      list.innerHTML = files.map((f, i) => `
+        <div class="file-item" id="row_${i}">
+          <span>📄</span>
+          <span class="file-name" title="${esc(f.name)}">${esc(f.name)}</span>
+          <span class="file-size">${(f.size / 1024).toFixed(1)} KB</span>
+          <span class="file-status s-pending" id="st_${i}">Pending</span>
+          <button class="remove-btn" onclick="removeFile(${i})" title="Remove">✕</button>
+        </div>
+      `).join('');
+    }
+
+    function removeFile(i) {
+      files.splice(i, 1);
+      renderList();
+    }
+
+    function clearAll() {
+      files = [];
+      renderList();
+      document.getElementById('resultsCard').classList.add('hidden');
+    }
+
+    // ── Upload ───────────────────────────────────────────────────────
+    async function startUpload() {
+      if (!files.length) return;
+
+      const btn     = document.getElementById('uploadBtn');
+      const results = document.getElementById('resultsList');
+
+      btn.disabled     = true;
+      btn.textContent  = '⏳ Uploading...';
+      results.innerHTML = '';
+      document.getElementById('resultsCard').classList.remove('hidden');
+
+      for (let i = 0; i < files.length; i++) {
+        const f  = files[i];
+        const st = document.getElementById('st_' + i);
+
+        st.textContent = 'Sending...';
+        st.className   = 'file-status s-sending';
+
+        const form = new FormData();
+        form.append('file', f);
+
+        try {
+          const res = await fetch(API + '/upload-csv', {
+            method: 'POST',
+            // Do NOT set Content-Type — browser adds it with boundary automatically
+            headers: {
+              'Authorization': 'Bearer ' + (localStorage.getItem('token') || '')
+            },
+            body: form
+          });
+
+          let data = {};
+          try { data = await res.json(); } catch (_) {}
+
+          if (res.ok) {
+            st.textContent = '✓ Done';
+            st.className   = 'file-status s-done';
+            results.innerHTML += `
+              <div class="result-item result-ok">
+                ✅ <strong>${esc(f.name)}</strong>:
+                ${data.message || 'Imported ' + (data.count ?? '?') + ' students.'}
+              </div>`;
+          } else {
+            st.textContent = '✕ Error';
+            st.className   = 'file-status s-error';
+            const errHtml = Array.isArray(data.errors)
+              ? '<ul>' + data.errors.map(e => `<li>${esc(String(e))}</li>`).join('') + '</ul>'
+              : '';
+            results.innerHTML += `
+              <div class="result-item result-err">
+                ❌ <strong>${esc(f.name)}</strong>:
+                ${data.message || 'Server error ' + res.status}
+                ${errHtml}
+              </div>`;
+          }
+
+        } catch (err) {
+          st.textContent = '✕ Failed';
+          st.className   = 'file-status s-error';
+          results.innerHTML += `
+            <div class="result-item result-err">
+              ❌ <strong>${esc(f.name)}</strong>:
+              Cannot connect to <code>${API}</code><br/>
+              → Make sure Spring Boot is running on port 8080<br/>
+              <small style="color:#999">${esc(err.message)}</small>
+            </div>`;
+        }
+      }
+
+      btn.disabled    = false;
+      btn.textContent = '⬆ Upload All';
+    }
+
+    // ── Download sample CSV ──────────────────────────────────────────
+    function downloadSample() {
+      const csv = [
+        'studentId,name,email,department,course,grade',
+        'STU001,Alice Johnson,alice@university.edu,Computer Science,Data Structures,A',
+        'STU002,Bob Smith,bob@university.edu,Mathematics,Calculus II,B+',
+        'STU003,Carol White,carol@university.edu,Physics,Mechanics,A-',
+        'STU004,David Lee,david@university.edu,Computer Science,Machine Learning,A+',
+        'STU005,Emma Davis,emma@university.edu,Electronics,Digital Circuits,B',
+        'STU006,Frank Wilson,frank@university.edu,Mathematics,Linear Algebra,A',
+        'STU007,Grace Kim,grace@university.edu,Computer Science,Operating Systems,B+',
+        'STU008,Henry Brown,henry@university.edu,Physics,Thermodynamics,C+'
+      ].join('\n');
+
+      const a    = document.createElement('a');
+      a.href     = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+      a.download = 'sample_students.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    // ── XSS helper ───────────────────────────────────────────────────
+    function esc(s) {
+      return String(s)
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;');
+    }
+  </script>
+</body>
+</html>
